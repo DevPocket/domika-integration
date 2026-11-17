@@ -57,17 +57,14 @@ async def remove_push_session(
             ) as resp,
         ):
             if resp.status == statuses.HTTP_204_NO_CONTENT:
-                LOGGER.debug(
-                    "Remove_push_session deleted: %s",
-                    push_session_id,
-                )
+                LOGGER.debug("Remove_push_session deleted the push session of app session %s", app_session_id)
                 return push_session_id
 
             if resp.status == statuses.HTTP_400_BAD_REQUEST:
                 raise push_server_errors.BadRequestError(await resp.json())
 
             if resp.status == statuses.HTTP_401_UNAUTHORIZED:
-                raise push_server_errors.PushSessionIdNotFoundError(push_session_id)
+                raise push_server_errors.PushSessionIdNotFoundError()
 
             raise push_server_errors.UnexpectedServerResponseError(resp.status)
     except aiohttp.ClientError as e:

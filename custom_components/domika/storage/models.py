@@ -1,17 +1,23 @@
 """Storage models."""
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 UsersData = namedtuple('UsersData', 'value value_hash')
-Sessions = namedtuple('Sessions', 'app_session_id push_session_id')
+
+
+# The push session id authorizes pushes to a phone, so models keep it out of their repr and thus out of logs.
+@dataclass
+class Sessions:
+    app_session_id: str
+    push_session_id: str = field(repr=False)
 
 
 @dataclass
 class AppSession:
     id: str
     user_id: str
-    push_session_id: str
+    push_session_id: str = field(repr=False)
     last_update: datetime
     push_token_hash: str
 

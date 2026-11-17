@@ -108,9 +108,8 @@ class PushDataStorage:
         - changed_entity_id: The entity_id of the changed entity.
         - changed_attributes: A dictionary {attribute: new_value}.
         """
-        LOGGER.finest("PushDataStorage.process_entity_changes push_subscriptions: %s, changed_entity_id: %s "
+        LOGGER.finest("PushDataStorage.process_entity_changes changed_entity_id: %s "
                       "changed_attributes: %s, event_id: %s, timestamp: %s, context_id: %s, delay: %s",
-                      push_subscriptions,
                       changed_entity_id,
                       changed_attributes,
                       event_id,

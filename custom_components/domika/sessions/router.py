@@ -220,7 +220,7 @@ async def _check_push_token(
         push_token_hash: str,
 ) -> None:
     app_session = APP_SESSIONS_STORAGE.get_app_session(app_session_id)
-    LOGGER.finest('_check_push_token app_session', app_session)
+    LOGGER.finest('_check_push_token app_session: %s', app_session)
 
     if app_session:
         if app_session.push_session_id and app_session.push_token_hash == push_token_hash:
@@ -292,13 +292,13 @@ async def websocket_domika_update_push_token(
 
 async def _remove_push_session(hass: HomeAssistant, app_session_id: str) -> None:
     try:
-        push_session_id = await sessions_flow.remove_push_session(
+        await sessions_flow.remove_push_session(
             async_get_clientsession(hass),
             app_session_id,
             PUSH_SERVER_URL,
             ClientTimeout(total=PUSH_SERVER_TIMEOUT),
         )
-        LOGGER.debug('Push session "%s" successfully removed', push_session_id)
+        LOGGER.debug('Push session of application "%s" successfully removed', app_session_id)
     except errors.AppSessionIdNotFoundError as e:
         LOGGER.warning(
             'Can\'t remove push session. Application with id "%s" not found',
@@ -578,7 +578,7 @@ async def _verify_push_session(
         push_token_hash: str,
 ) -> None:
     try:
-        push_session_id = await sessions_flow.verify_push_session(
+        await sessions_flow.verify_push_session(
             async_get_clientsession(hass),
             app_session_id,
             verification_key,
@@ -587,9 +587,8 @@ async def _verify_push_session(
             ClientTimeout(total=PUSH_SERVER_TIMEOUT),
         )
         LOGGER.debug(
-            'Push session for application "%s" verified. New push session id "%s". Push token hash "%s"',
+            'Push session for application "%s" verified. Push token hash "%s"',
             app_session_id,
-            push_session_id,
             push_token_hash,
         )
     except (ValueError, errors.AppSessionIdNotFoundError) as e:

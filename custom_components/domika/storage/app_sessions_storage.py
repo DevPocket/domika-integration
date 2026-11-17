@@ -77,7 +77,7 @@ class AppSessionsStorage:
             if data := await self._store.async_load():
                 self._data = data
                 self._update_subscriptions_caches()
-            LOGGER.finer("AppSessionsStorage loaded data from app sessions store: %s", self._data)
+            LOGGER.finer("AppSessionsStorage loaded %d app sessions", len(self._data))
         finally:
             self.rw_lock.release_write()
 
@@ -99,7 +99,7 @@ class AppSessionsStorage:
             self.rw_lock.acquire_write()
             try:
                 data_copy = copy.deepcopy(self._data)
-                LOGGER.finest("AppSessionsStorage _save_app_sessions_data provided data: %s", data_copy)
+                LOGGER.finest("AppSessionsStorage _save_app_sessions_data provided %d app sessions", len(data_copy))
                 return data_copy
             finally:
                 self.rw_lock.release_write()
@@ -109,7 +109,7 @@ class AppSessionsStorage:
             self._store.async_delay_save(provide_data, delay)
 
     def push_subscriptions(self) -> dict:
-        LOGGER.finest("AppSessionsStorage push_subscriptions returned: %s", self._push_subscriptions)
+        LOGGER.finest("AppSessionsStorage push_subscriptions returned %d entities", len(self._push_subscriptions))
         return self._push_subscriptions
 
     def _get_subscription_cache(
@@ -129,7 +129,7 @@ class AppSessionsStorage:
             ……
         }
         """
-        LOGGER.finest("AppSessionsStorage _get_subscription_cache started, data: %s", self._data)
+        LOGGER.finest("AppSessionsStorage _get_subscription_cache started, %d app sessions", len(self._data))
         res = {}
 
         for app_session_id, session_data in self._data.items():
@@ -161,7 +161,7 @@ class AppSessionsStorage:
                 # Add the attribute to the list
                 res[entity_id][app_session_id]["attributes"].add(attribute)
 
-        LOGGER.finest("AppSessionsStorage _get_subscription_cache, res: %s", res)
+        LOGGER.finest("AppSessionsStorage _get_subscription_cache, %d entities", len(res))
         return res
 
     def _update_subscriptions_caches(self):
@@ -228,11 +228,7 @@ class AppSessionsStorage:
         self.rw_lock.acquire_write()
         try:
             if data := self._data.get(app_session_id):
-                LOGGER.finer(
-                    'AppSessionsStorage: push session "%s" for app_session_id "%s" successfully removed',
-                    data.get('push_session_id'),
-                    app_session_id
-                )
+                LOGGER.finer('AppSessionsStorage: push session for app_session_id "%s" successfully removed', app_session_id)
                 data['push_session_id'] = None
             self._update_subscriptions_caches()
         finally:
@@ -318,8 +314,8 @@ class AppSessionsStorage:
 
             if not data or not data.get("subscriptions"):
                 LOGGER.verbose("AppSessionsStorage.app_session_resubscribe_push: "
-                               "Can't update subscriptions for app_session_id: %s data: %s",
-                               app_session_id, self._data
+                               "Can't update subscriptions for app_session_id: %s",
+                               app_session_id
                               )
                 return
 

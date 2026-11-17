@@ -32,11 +32,8 @@ class UnexpectedServerResponseError(DomikaPushServerError):
 class PushSessionIdNotFoundError(DomikaPushServerError):
     """Push session id found on the push server."""
 
-    def __init__(self, push_session_id: str):
-        super().__init__(
-            f'Push session with id "{push_session_id}" not found on the push server',
-        )
-        self.push_session_id = push_session_id
+    def __init__(self):
+        super().__init__("Push session not found on the push server")
 
 
 class PushTokenMismatchError(DomikaPushServerError):

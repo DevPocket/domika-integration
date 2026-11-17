@@ -326,9 +326,8 @@ async def _send_push_data(
         *,
         critical: bool = False,
 ) -> None:
-    LOGGER.verbose("Push events %sto push_session %s (app_session %s). %s",
+    LOGGER.verbose("Push events %sto app_session %s. %s",
         "(critical) " if critical else "",
-        push_session_id,
         app_session_id,
         payload
     )
