@@ -88,7 +88,7 @@ if [[ "$FULL" = 1 ]]; then
 fi
 
 # One line per failure: the test id and pytest's short reason (COLUMNS keeps it from being cut).
-grep -E '^(FAILED|ERROR) ' "$LOG" | while IFS= read -r line; do
+grep -E '^(FAILED|ERROR) [^ ]+\.py' "$LOG" | while IFS= read -r line; do
   printf '%s✗ %s%s\n' "$RED" "${line#* }" "$RST"
 done
 
