@@ -160,3 +160,50 @@ async def test_push_states_view_accepts_own_session(hass, app_sessions, push_dat
         response = await DomikaAPIPushStatesWithDelayView().post(request)
 
     assert response.status == HTTPStatus.OK
+
+
+def _update_app_session_message(app_session_id: str, push_token_hash: str = "") -> dict:
+    return {
+        "id": 1,
+        "app_session_id": app_session_id,
+        "push_token_hash": push_token_hash,
+        "os_platform": "ios",
+        "os_version": "27",
+        "app_id": "app",
+        "app_version": "1",
+    }
+
+
+async def _update_app_session(hass, connection, message: dict) -> dict:
+    with patch.object(sessions_router, "_get_hass_network_properties", AsyncMock(return_value={})):
+        await sessions_router.websocket_domika_update_app_session.__wrapped__(hass, connection, message)
+    return connection.send_result.call_args.args[1]
+
+
+async def test_update_app_session_keeps_another_users_session(hass, app_sessions):
+    add_session(app_sessions, "victim", "owner", push_session_id="push", subscriptions=[SUBSCRIPTION])
+    connection = make_connection("intruder")
+
+    result = await _update_app_session(hass, connection, _update_app_session_message("victim"))
+
+    victim = app_sessions.get_app_session("victim")
+    assert victim is not None
+    assert victim.user_id == "owner"
+    assert victim.push_session_id == "push"
+    assert result["app_session_id"] != "victim"
+    assert app_sessions.get_app_session(result["app_session_id"]).user_id == "intruder"
+
+
+# Signing in as another user on the same phone: the app offers its previous session id and removes the old one.
+async def test_switching_accounts_on_a_device_still_cleans_up_the_old_session(hass, app_sessions):
+    add_session(app_sessions, "previous_login", "old_user", push_token_hash="device")
+    connection = make_connection("new_user")
+
+    result = await _update_app_session(hass, connection, _update_app_session_message("previous_login", "device"))
+
+    assert result["old_app_session_ids"] == ["previous_login"]
+    removal = make_connection("new_user")
+    await sessions_router.websocket_domika_remove_app_session.__wrapped__(
+        hass, removal, {"id": 2, "app_session_id": "previous_login"},
+    )
+    removal.send_error.assert_not_called()

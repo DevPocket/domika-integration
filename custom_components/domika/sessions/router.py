@@ -191,12 +191,13 @@ async def _update_app_session(
                 new_app_session_id,
             )
         else:
-            LOGGER.error(
-                "_update_app_session user_id mismatch: got %s, in storage: %s.",
-                user_id,
+            # Another user's session is left alone; on a shared device the app removes it via old_app_session_ids.
+            LOGGER.warning(
+                '_update_app_session: app session "%s" belongs to user %s, not %s; creating a new one.',
+                app_session_id,
                 app_session.user_id,
+                user_id,
             )
-            APP_SESSIONS_STORAGE.remove(app_session_id)
     if not new_app_session_id:
         new_app_session_id = APP_SESSIONS_STORAGE.create(user_id, push_token_hash)
         LOGGER.verbose("_update_app_session new app_session_id created: %s.",
