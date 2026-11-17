@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..const import DOMAIN, PUSH_SERVER_TIMEOUT, PUSH_SERVER_URL
-from ..domika_logger import LOGGER
+from ..domika_logger import LOGGER, masked
 from ..storage import APP_SESSIONS_STORAGE
 from ..critical_sensor import service as critical_sensor_service
 from .. import errors, push_server_errors
@@ -128,7 +128,15 @@ async def websocket_domika_update_app_session(
         LOGGER.error('Got websocket message "update_app_session", msg_id is missing')
         return
 
-    LOGGER.verbose('Got websocket message "update_app_session", data: %s', msg)
+    LOGGER.verbose(
+        'Got websocket message "update_app_session", app_session_id: %s, push_token_hash: %s, app: %s %s, os: %s %s',
+        msg.get("app_session_id"),
+        masked(msg.get("push_token_hash")),
+        msg.get("app_id"),
+        msg.get("app_version"),
+        msg.get("os_platform"),
+        msg.get("os_version"),
+    )
 
     # Check that the app is compatible with the current version.
     os_platform: str = msg.get("os_platform", "")
@@ -228,19 +236,19 @@ async def _check_push_token(
                 "d.type": "push_activation",
                 "push_activation_success": True,
             }
-            LOGGER.debug('Push token hash "%s" check. OK', push_token_hash)
+            LOGGER.debug('Push token hash "%s" check. OK', masked(push_token_hash))
         else:
             event_result = {
                 "d.type": "push_activation",
                 "push_activation_success": False,
             }
-            LOGGER.verbose('Push token hash "%s" check. Need validation', push_token_hash)
+            LOGGER.verbose('Push token hash "%s" check. Need validation', masked(push_token_hash))
     else:
         event_result = {
             "d.type": "push_activation",
             "push_activation_success": False,
         }
-        LOGGER.verbose('Push token hash "%s" check. Device not found', push_token_hash)
+        LOGGER.verbose('Push token hash "%s" check. Device not found', masked(push_token_hash))
 
     LOGGER.debug('_check_push_token app_session: %s, result: %s', app_session, event_result)
     hass.bus.async_fire(f"domika_{app_session_id}", event_result)
@@ -265,7 +273,11 @@ async def websocket_domika_update_push_token(
         LOGGER.error('Got websocket message "update_push_token", msg_id is missing')
         return
 
-    LOGGER.verbose('Got websocket message "update_push_token", data: %s', msg)
+    LOGGER.verbose(
+        'Got websocket message "update_push_token", app_session_id: %s, push_token_hash: %s',
+        msg.get("app_session_id"),
+        masked(msg.get("push_token_hash")),
+    )
 
     if reject_foreign_session(connection, msg_id, msg.get("app_session_id")):
         return
@@ -589,20 +601,20 @@ async def _verify_push_session(
         LOGGER.debug(
             'Push session for application "%s" verified. Push token hash "%s"',
             app_session_id,
-            push_token_hash,
+            masked(push_token_hash),
         )
     except (ValueError, errors.AppSessionIdNotFoundError) as e:
         LOGGER.error(
             'Can\'t verify push session for application "%s". Push token hash "%s". %s',
             app_session_id,
-            push_token_hash,
+            masked(push_token_hash),
             e,
         )
     except push_server_errors.BadRequestError as e:
         LOGGER.error(
             'Can\'t verify push session for application "%s". Push server error. Push token hash "%s". %s. %s',
             app_session_id,
-            push_token_hash,
+            masked(push_token_hash),
             e,
             e.body,
         )
@@ -610,14 +622,14 @@ async def _verify_push_session(
         LOGGER.error(
             'Can\'t verify push session for application "%s". Push server error. Push token hash "%s". %s',
             app_session_id,
-            push_token_hash,
+            masked(push_token_hash),
             e,
         )
     except Exception:  # noqa: BLE001
         LOGGER.error(
             'Can\'t verify push session for application "%s". Push token hash "%s". Unhandled error',
             app_session_id,
-            push_token_hash,
+            masked(push_token_hash),
         )
 
 

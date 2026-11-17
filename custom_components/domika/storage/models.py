@@ -6,7 +6,7 @@ from datetime import datetime
 UsersData = namedtuple('UsersData', 'value value_hash')
 
 
-# The push session id authorizes pushes to a phone, so models keep it out of their repr and thus out of logs.
+# Push session ids and push token hashes act as credentials, so models keep them out of their repr and the logs.
 @dataclass
 class Sessions:
     app_session_id: str
@@ -19,7 +19,7 @@ class AppSession:
     user_id: str
     push_session_id: str = field(repr=False)
     last_update: datetime
-    push_token_hash: str
+    push_token_hash: str = field(repr=False)
 
     @staticmethod
     def init_from_dict(app_session_id: str, d: dict):

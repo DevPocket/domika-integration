@@ -1,4 +1,4 @@
-"""The push session id authorizes pushes to a phone, so it must not reach the log at any level."""
+"""Push session ids and push token hashes act as credentials, so they must not reach the log at any level."""
 
 import logging
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -16,6 +16,7 @@ from custom_components.domika.storage.models import AppSession, Sessions
 from .conftest import add_session
 
 SECRET = "PUSH-SESSION-SECRET"
+HASH = "PUSH-TOKEN-HASH-SECRET"
 SUBSCRIPTION = {"entity_id": "light.a", "attribute": "s", "need_push": 1}
 
 
@@ -26,7 +27,9 @@ def all_logs(caplog):
         yield caplog
     records = caplog.get_records("call")
     assert records, "nothing was logged, so the check proves nothing"
-    assert SECRET not in "\n".join(record.getMessage() for record in records)
+    text = "\n".join(record.getMessage() for record in records)
+    assert SECRET not in text
+    assert HASH not in text
 
 
 def _response(status: int) -> MagicMock:
@@ -40,7 +43,8 @@ def _response(status: int) -> MagicMock:
 
 
 def test_models_keep_the_id_out_of_their_repr():
-    assert SECRET not in repr(AppSession("s", "u", SECRET, None, "h"))
+    assert SECRET not in repr(AppSession("s", "u", SECRET, None, HASH))
+    assert HASH not in repr(AppSession("s", "u", SECRET, None, HASH))
     assert SECRET not in repr(Sessions("s", SECRET))
     assert SECRET not in repr(PushData("e", "s", SECRET, "light.a", "s", "on", "c", 1, 0))
 
@@ -50,13 +54,13 @@ async def test_verifying_a_push_session(hass, app_sessions, all_logs):
         patch.object(sessions_router.sessions_flow, "verify_push_session", AsyncMock(return_value=SECRET)),
         patch.object(sessions_router, "async_get_clientsession"),
     ):
-        await sessions_router._verify_push_session(hass, "s", "key", "hash")
+        await sessions_router._verify_push_session(hass, "s", "key", HASH)
 
 
 async def test_checking_the_push_token(hass, app_sessions, all_logs):
-    add_session(app_sessions, "s", "owner", push_token_hash="hash", push_session_id=SECRET)
+    add_session(app_sessions, "s", "owner", push_token_hash=HASH, push_session_id=SECRET)
 
-    await sessions_router._check_push_token(hass, "s", "hash")
+    await sessions_router._check_push_token(hass, "s", HASH)
 
 
 @pytest.mark.parametrize("result", [SECRET, push_server_errors.PushSessionIdNotFoundError()])
@@ -122,3 +126,44 @@ def test_storage_operations(app_sessions, all_logs):
     app_sessions.resubscribe_push("missing", {"light.a": {"s"}})
     app_sessions.remove_push_session("s")
 
+
+@pytest.mark.parametrize("error", [ValueError("missing"), push_server_errors.DomikaPushServerError("down"), RuntimeError("boom")])
+async def test_failing_to_verify_a_push_session(hass, app_sessions, all_logs, error):
+    with (
+        patch.object(sessions_router.sessions_flow, "verify_push_session", AsyncMock(side_effect=error)),
+        patch.object(sessions_router, "async_get_clientsession"),
+    ):
+        await sessions_router._verify_push_session(hass, "s", "key", HASH)
+
+
+async def test_push_session_messages(hass, app_sessions, all_logs):
+    from .conftest import make_connection
+
+    add_session(app_sessions, "s", "owner", push_token_hash=HASH)
+    connection = make_connection("owner")
+    message = {"id": 1, "app_session_id": "s", "push_token_hash": HASH}
+    with patch.object(sessions_router, "_get_hass_network_properties", AsyncMock(return_value={})):
+        await sessions_router.websocket_domika_update_app_session.__wrapped__(
+            hass, connection, {**message, "os_platform": "ios", "os_version": "27", "app_id": "a", "app_version": "1"},
+        )
+    await sessions_router.websocket_domika_update_push_token.__wrapped__(hass, connection, message)
+
+
+async def test_the_full_hash_still_reaches_the_push_server_and_storage(hass, app_sessions):
+    from .conftest import make_connection
+
+    flow = AsyncMock(return_value=SECRET)
+    with (
+        patch.object(sessions_router.sessions_flow, "verify_push_session", flow),
+        patch.object(sessions_router, "async_get_clientsession"),
+    ):
+        await sessions_router._verify_push_session(hass, "s", "key", HASH)
+    assert flow.await_args.args[3] == HASH
+
+    with patch.object(sessions_router, "_get_hass_network_properties", AsyncMock(return_value={})):
+        await sessions_router.websocket_domika_update_app_session.__wrapped__(
+            hass,
+            make_connection("owner"),
+            {"id": 1, "push_token_hash": HASH, "os_platform": "ios", "os_version": "27", "app_id": "a", "app_version": "1"},
+        )
+    assert [session["push_token_hash"] for session in app_sessions._data.values()] == [HASH]

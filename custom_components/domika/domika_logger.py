@@ -60,3 +60,8 @@ class DomikaLogger:
 
 
 LOGGER = DomikaLogger(DOMIKA_LOG_LEVEL)
+
+
+def masked(secret: str | None) -> str:
+    """Return the start of a secret, enough to tell values apart in a log but not to use one."""
+    return f"{secret[:4]}…" if secret else "-"
